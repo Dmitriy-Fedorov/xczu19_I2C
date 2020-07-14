@@ -19,12 +19,15 @@ wire clk_I2C_400KHz;
 wire[31:0] state;
 //wire[6:0] slv_addr = 7'b1110100;
 wire[6:0] slv_addr;
-wire[7:0] payload_out;
+wire[7:0] current_payload_out;
+wire[7:0] current_payload_in;
 wire[7:0] send_buffer;
 
 wire done_flag;
 wire ack;
 wire en;
+wire error;
+wire rw_10;
 
 wire rx_clk, rx_data;
 wire tx_clk, tx_data;
@@ -32,7 +35,9 @@ wire clk_enable, tx_enable;
 
 
 
-wire rst;
+wire rst_cell;
+
+wire rst_wrapper;
 wire[3:0] clk_mux;
 wire[7:0] reg_addr;
 
@@ -49,7 +54,7 @@ assign clk_I2C_400KHz = clock_count[clk_mux];
 /* ------- Debug ------- */
 vio_0 vio_switch (
   .clk(clk_ddr4_200MHz),    // input wire clk
-  .probe_out0(rst),  // output wire [0 : 0] probe_out0
+  .probe_out0(rst_wrapper),  // output wire [0 : 0] probe_out0
   .probe_out1(clk_mux),  // output wire [3 : 0] probe_out1
   .probe_out2(reg_addr),  // output wire [7 : 0] probe_out2
   .probe_out3(slv_addr),  // output wire [6 : 0] probe_out3
@@ -63,8 +68,8 @@ ila_0 ila_debug (
 	.probe0(clock_count), // input wire [15:0]  probe0  
 	.probe1(clk_I2C_400KHz), // input wire [0:0]  probe1 
 	.probe2({rx_data, rx_clk}), // input wire [1:0]  probe2 
-	.probe3({rst, ack, done_flag, en, tx_enable, clk_enable}), // input wire [5:0]  probe3 
-	.probe4(payload_out), // input wire [7:0]  probe4 
+	.probe3({rst_cell, ack, done_flag, en, tx_enable, clk_enable}), // input wire [5:0]  probe3 
+	.probe4(current_payload_out), // input wire [7:0]  probe4 
 	.probe5(send_buffer), // input wire [7:0]  probe5
 	.probe6(state)     // input wire [31:0]  probe0  
 );
@@ -78,14 +83,31 @@ assign rx_clk = I2C_SCL_PL;
 
 
 /* ------- I2C main cell ------- */
-I2C_S5341_seq_v2 I2C_cell(
-    .clk(clk_I2C_400KHz),          // input   - 400KHz
-    .rst(rst),                      // input
-    .slv_addr(slv_addr),        // input [6:0]
-    .payload_in(reg_addr),      // input [7:0]
-    .payload_out(payload_out),     // output [7:0]
-    .done_flag(done_flag),       // output
+//I2C_S5341_seq_v2 I2C_cell(
+//    .clk(clk_I2C_400KHz),          // input   - 400KHz
+//    .rst(rst),                      // input
+//    .slv_addr(slv_addr),        // input [6:0]
+//    .payload_in(reg_addr),      // input [7:0]
+//    .payload_out(payload_out),     // output [7:0]
+//    .done_flag(done_flag),       // output
        
+//    .rx_data(rx_data),
+//    .rx_clk(rx_clk),
+//    .tx_data(tx_data),
+//    .tx_clk(tx_clk),
+//    .tx_enable(tx_enable),
+//    .clk_enable(clk_enable),
+    
+//    .en(en),                        
+//    .ack(ack), 
+//    .send_buffer(send_buffer),
+//    .state(state)
+//    );
+    
+I2C_wrapper UUT(
+    // essential
+    .clk(clk_I2C_400KHz),
+    // I2C pass throuth
     .rx_data(rx_data),
     .rx_clk(rx_clk),
     .tx_data(tx_data),
@@ -93,13 +115,23 @@ I2C_S5341_seq_v2 I2C_cell(
     .tx_enable(tx_enable),
     .clk_enable(clk_enable),
     
-    .en(en),                        
-    .ack(ack), 
+    .error(error),
+    .done_flag(done_flag),
+    
+    
+    // control
+    .slv_addr(slv_addr),
+    .current_payload_in(current_payload_in),
+    .current_payload_out(current_payload_out),
+    .rw_10(rw_10),
+    .rst_cell(rst_cell),
+    .rst_wrapper(rst_wrapper),
+    // debug
+    .ack(ack),
+    .en(en),
     .send_buffer(send_buffer),
     .state(state)
     );
-    
-
 
 /* ------- Simple 16-bit counter ------- */
 always @(posedge clk_ddr4_200MHz)

@@ -5,10 +5,13 @@
 module I2C_S5341_seq_v2(
     // essential
     input wire clk,
-    input wire rst,
     input wire[6:0] slv_addr,
     input wire[7:0] payload_in,
     output reg[7:0] payload_out,
+    
+    input wire rst,
+    input wire rw_10,
+    output reg error = 0,
     output reg done_flag,
     // I2C
     input wire rx_data,
@@ -26,8 +29,9 @@ module I2C_S5341_seq_v2(
     
 
 
-localparam start_1 = 2;
-localparam start_2 = 84; //82;
+//localparam start_1 = 2;
+//localparam start_2 = 140; //82;
+localparam t_start = 2;
 localparam READ_RX = 0;
 localparam WRITE_TX = 1;
 localparam I2C_READ = 1'b1;
@@ -81,11 +85,14 @@ task do_stop;
             offset + 2:
             begin
                 tx_enable <= 0;
-                done_flag <= 1;
                 flag_clk_count <= 0;
                 clk_counter <= 0;
             end
-            offset + 3:
+            offset + 4:
+            begin
+                done_flag <= 1;
+            end
+            offset + 5:
             begin
                 done_flag <= 0;
                 state <= "IDLE";
@@ -257,6 +264,7 @@ begin
         tx_enable <= 0;
         en <= 1'b1;
         state <= "IDLE";
+        done_flag <= 0;
     end
     else
     begin
@@ -266,30 +274,35 @@ begin
             if (flag_clk_count)
                 clk_counter <= clk_counter + 1;
         end
-        // select register
-//        do_start(start_1);
-//        do_send(start_1 + 2, {slv_addr, I2C_WRITE});
-//        read_ack(start_1 + 33, WRITE_TX);
-//        do_send(start_1 + 38, payload_in);
-//        read_ack(start_1 + 69, WRITE_TX);
-//        do_stop(start_1 + 75);
-        
-        // read stage
-        do_start(start_2);
-        do_send(start_2 + 2, {slv_addr, I2C_READ});
-        read_ack(start_2 + 33, READ_RX);
-        do_read(start_2 + 40, payload_out);
-        send_nack(start_2 + 69, WRITE_TX);
-        do_stop(start_2 + 75);
-        
+        if (~rw_10)
+        begin
+            // select register
+            do_start(t_start);
+            do_send(t_start + 2, {slv_addr, I2C_WRITE});
+            read_ack(t_start + 33, WRITE_TX);
+            do_send(t_start + 38, payload_in);
+            read_ack(t_start + 69, WRITE_TX);
+            do_stop(t_start + 75);
+        end
+        else
+        begin
+            // read stage
+            do_start(t_start);
+            do_send(t_start + 2, {slv_addr, I2C_READ});
+            read_ack(t_start + 33, READ_RX);
+            do_read(t_start + 40, payload_out);
+            send_nack(t_start + 69, WRITE_TX);
+            do_stop(t_start + 75);
+        end
         
         case (main_counter)
-        32'hffffffff:
-        begin
-            clk_enable <= 0;
-            tx_enable <= 0;
-        end          
-        start_2 + 100:
+            /*
+            main_counter % 4 == 2 -> possedge
+            main_counter % 4 == 3 -> positive
+            main_counter % 4 == 0 -> negedge
+            main_counter % 4 == 1 -> zero
+            */    
+        t_start + 90:
         begin
             en <= 0;
         end
