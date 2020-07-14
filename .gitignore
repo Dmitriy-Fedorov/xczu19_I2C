@@ -1,0 +1,12 @@
+#  Blacklist files/folders in same directory as the .gitignore file
+*
+
+# You can be specific with these rules
+!.gitignore
+
+
+!project_*.srcs/
+!project_*.srcs/*/
+!project_*.srcs/*/*/
+!project_*.srcs/*/*/*.v
+!project_*.srcs/*/*/*.xdc
