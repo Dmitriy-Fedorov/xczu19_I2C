@@ -267,18 +267,18 @@ begin
                 clk_counter <= clk_counter + 1;
         end
         // select register
-        do_start(start_1);
-        do_send(start_1 + 2, {slv_addr, I2C_WRITE});
-        read_ack(start_1 + 33, WRITE_TX);
-        do_send(start_1 + 38, payload_in);
-        read_ack(start_1 + 69, WRITE_TX);
-        do_stop(start_1 + 75);
+//        do_start(start_1);
+//        do_send(start_1 + 2, {slv_addr, I2C_WRITE});
+//        read_ack(start_1 + 33, WRITE_TX);
+//        do_send(start_1 + 38, payload_in);
+//        read_ack(start_1 + 69, WRITE_TX);
+//        do_stop(start_1 + 75);
         
         // read stage
         do_start(start_2);
         do_send(start_2 + 2, {slv_addr, I2C_READ});
         read_ack(start_2 + 33, READ_RX);
-        do_read(start_2 + 39, payload_out);
+        do_read(start_2 + 40, payload_out);
         send_nack(start_2 + 69, WRITE_TX);
         do_stop(start_2 + 75);
         

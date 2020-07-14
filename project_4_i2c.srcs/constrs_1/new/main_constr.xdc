@@ -58,6 +58,9 @@ set_property PACKAGE_PIN B3 [ get_ports "I2C_SDA_PL" ]
 set_property IOSTANDARD LVCMOS33 [ get_ports "I2C_SDA_PL" ]
 #set_property PIO_DIRECTION "BIDIR" [get_ports "I2C_SDA_PL"]
 
+set_property PACKAGE_PIN C4 [ get_ports "I2C_RST_N_PL" ]
+set_property IOSTANDARD LVCMOS33 [ get_ports "I2C_RST_N_PL" ]
+
 # ----------------------- I/O -----------------------
 ## PB1
 #set_property -dict { PACKAGE_PIN D8   IOSTANDARD LVCMOS33 } [get_ports { PB1 }];

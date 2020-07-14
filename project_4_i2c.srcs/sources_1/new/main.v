@@ -5,7 +5,8 @@ module main(
     input wire sys_clk_p,  
     input wire sys_clk_n,
     inout wire I2C_SCL_PL, 
-    inout wire I2C_SDA_PL
+    inout wire I2C_SDA_PL,
+    output wire I2C_RST_N_PL  //Active LOW reset input
     );
     
 reg[15:0] clock_count = 16'b0;
@@ -16,7 +17,8 @@ wire clk_I2C_400KHz;
 //reg[7:0] reg_addr = 8'b00000010;
 //reg read_write = 1'b0;    // 1-read, 0-write
 wire[31:0] state;
-wire[6:0] slv_addr = 7'b1110100;
+//wire[6:0] slv_addr = 7'b1110100;
+wire[6:0] slv_addr;
 wire[7:0] payload_out;
 wire[7:0] send_buffer;
 
@@ -49,7 +51,9 @@ vio_0 vio_switch (
   .clk(clk_ddr4_200MHz),    // input wire clk
   .probe_out0(rst),  // output wire [0 : 0] probe_out0
   .probe_out1(clk_mux),  // output wire [3 : 0] probe_out1
-  .probe_out2(reg_addr)  // output wire [7 : 0] probe_out2
+  .probe_out2(reg_addr),  // output wire [7 : 0] probe_out2
+  .probe_out3(slv_addr),  // output wire [6 : 0] probe_out3
+  .probe_out4(I2C_RST_N_PL)
 );
 
 
