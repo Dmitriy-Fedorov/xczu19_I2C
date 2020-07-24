@@ -37,7 +37,7 @@ localparam WRITE_TX = 1;
 localparam I2C_READ = 1'b1;
 localparam I2C_WRITE = 1'b0;
 
-reg[31:0] main_counter = 32'hffffffff;  
+reg[7:0] main_counter = 8'hff;  
 reg[7:0] clk_counter = 8'h00;  
 reg flag_clk_count = 0;
 
@@ -153,44 +153,44 @@ endtask
 
 task do_read;
     input [31:0] offset;
-    output [7:0] buffer;
+//    output [7:0] buffer;
     
     begin
     case (main_counter)
         offset:
         begin 
             $display("%6d Recieving payload", $time);
-            buffer[7] <= rx_data;
+            payload_out[7] <= rx_data;
             state <= "READ";
         end
         offset + 4:
         begin 
-            buffer[6] <= rx_data;
+            payload_out[6] <= rx_data;
         end
         offset + 8:
         begin 
-            buffer[5] <= rx_data;
+            payload_out[5] <= rx_data;
         end
         offset + 12:
         begin 
-            buffer[4] <= rx_data;
+            payload_out[4] <= rx_data;
         end
         offset + 16:
         begin 
-            buffer[3] <= rx_data;
+            payload_out[3] <= rx_data;
         end
         offset + 20:
         begin 
-            buffer[2] <= rx_data;
+            payload_out[2] <= rx_data;
         end
         offset + 24:
         begin 
-            buffer[1] <= rx_data;
+            payload_out[1] <= rx_data;
         end
         offset + 28:
         begin 
-            buffer[0] <= rx_data;
-            $display("%6d Recieved payload, %8b", $time,  {buffer[7:1], rx_data} );
+            payload_out[0] <= rx_data;
+            $display("%6d Recieved payload, %8b", $time,  {payload_out[7:1], rx_data} );
         end
     endcase
     end
@@ -221,6 +221,7 @@ task read_ack;
             end
             else
             begin
+                error <= 1;
                 $display("%6d NACK %1b recieved", $time, ack );
 //                main_counter <= 32'd77;
             end
@@ -229,6 +230,7 @@ task read_ack;
         begin
             tx_enable <= tx_enable_flag;
             ack <= 1;
+            error <= 0;
         end
     endcase
     
@@ -258,7 +260,7 @@ always @(posedge clk)
 begin
     if (rst)
     begin
-        main_counter <= 32'hffffffff;
+        main_counter <= 8'hff;
         clk_counter <= 0;
         clk_enable <= 0;
         tx_enable <= 0;
@@ -290,7 +292,7 @@ begin
             do_start(t_start);
             do_send(t_start + 2, {slv_addr, I2C_READ});
             read_ack(t_start + 33, READ_RX);
-            do_read(t_start + 40, payload_out);
+            do_read(t_start + 40);
             send_nack(t_start + 69, WRITE_TX);
             do_stop(t_start + 75);
         end
