@@ -26,18 +26,19 @@ module I2C_wrapper(
     output wire ack,
     output wire en,
     output wire[7:0] send_buffer,
-    output wire[31:0] state
+    output wire[31:0] state,
+    output reg trigger
     );
     
 
 /* ------- I2C main cell ------- */
 I2C_S5341_seq_v2 I2C_cell(
-    .clk(clk),          // input   - 400KHz
-    .slv_addr(slv_addr),        // input [6:0]
-    .payload_in(current_payload_in),      // input [7:0]
-    .payload_out(current_payload_out),     // output [7:0]
+    .clk(clk),                              // input   - 400KHz
+    .slv_addr(slv_addr),                    // input [6:0]
+    .payload_in(current_payload_in),        // input [7:0]
+    .payload_out(current_payload_out),      // output [7:0]
     
-    .rst(rst_cell),                      // input
+    .rst(rst_cell),                         // input
     .error(error),
     .rw_10(rw_10),
     .done_flag(done_flag),       // output
@@ -55,77 +56,97 @@ I2C_S5341_seq_v2 I2C_cell(
     .state(state)
     );
     
-reg[7:0] wrapper_counter;  
-reg wrapper_enable = 0;
+reg[7:0] byte_index;  
+reg[15:0] t_counter = 16'h00;
+reg wrapper_enable;
+localparam t_cycle = 100;  // how many clock ticks does it takes to send 1-byte
+localparam U53_slave_addr = 7'h71;  // 7'b1110001;
+localparam U46_slave_addr = 7'h74;  // 7'b1110100;
 
-always @(negedge done_flag, posedge done_flag)
-begin
-    if(wrapper_enable & (~rst_wrapper))
+
+task send_byte;
+    input [15:0] index;
+    input [6:0] addr;
+    input [7:0] payload;
     begin
-        wrapper_counter <= wrapper_counter + 1;
+        case (t_counter)
+            t_cycle * index:
+            begin
+                slv_addr <= addr;                   // i2c slave addr
+                current_payload_in <= payload;      // payload to transmit
+                rw_10 <= 0;                         // write enable
+            end
+            t_cycle * index + 1:
+            begin
+                rst_cell <= 0;                      // makes i2c cell active
+            end
+            t_cycle * (index + 1) - 10:
+            begin
+                rst_cell <= 1;                      // makes i2c cell inactive and resets
+            end
+        endcase
     end
-    
-end
+endtask
+
+task read_byte;
+    input [15:0] index;
+    input [6:0] addr;
+    begin
+        case (t_counter)
+            t_cycle * index:
+            begin
+                slv_addr <= addr;                   // i2c slave addr
+                current_payload_in <= 0;            // dummy payload
+                rw_10 <= 1;                         // read enable
+            end
+            t_cycle * index + 1:
+            begin
+                rst_cell <= 0;                      // makes i2c cell active
+            end
+            t_cycle * (index + 1) - 10:
+            begin
+                rst_cell <= 1;
+            end
+        endcase
+    end
+endtask
+
+
+task stop_finish;
+    input [15:0] index;
+    begin
+        case (t_counter)
+        t_cycle*index + 1:
+        begin
+            wrapper_enable <= 0;    // stops t_counter in order to prevent overflow
+        end
+        endcase
+    end 
+endtask
+
 
 always @(posedge clk)
 begin
     if (rst_wrapper)
     begin
-        wrapper_counter <= 8'h0;
         current_payload_in <= 8'h00;
         rst_cell <= 1;
         wrapper_enable <= 1;
+        trigger <= 0;
+        byte_index <= 8'h0;
     end
     else
     begin
-        
-        case (wrapper_counter)
-        8'd0:
+        if (wrapper_enable)
         begin
-            // read U53 register
-            rst_cell <= 0;
-            slv_addr <= 7'h71;
-            current_payload_in <= 0;
-            rw_10 <= 1;
-        end
-        8'd1:
-        begin
-            rst_cell <= 1;
+            t_counter <= t_counter + 1;
         end
         
-        8'd2:
-        begin
-            // write U53 register
-            rst_cell <= 0;
-            slv_addr <= 7'h71;
-            current_payload_in <= 8'h02;  // U53 line number 1
-            rw_10 <= 0;
-        end
-        8'd3:
-        begin
-            rst_cell <= 1;
-        end
+        read_byte(16'd0, U53_slave_addr);
+        send_byte(16'd1, U53_slave_addr, 8'h02); // U53 activate line number 1
+        read_byte(16'd2, U53_slave_addr);
         
-        8'd4:
-        begin
-            // read U53 register
-            rst_cell <= 0;
-            slv_addr <= 7'h71;
-            current_payload_in <= 8'h00;
-            rw_10 <= 1;
-        end
-        8'd5:
-        begin
-            rst_cell <= 1;
-        end
-        
-        
-        
-        8'd6:
-        begin
-            wrapper_enable <= 0;
-        end
-        endcase
+        stop_finish(16'd3);
     end
 end
 
