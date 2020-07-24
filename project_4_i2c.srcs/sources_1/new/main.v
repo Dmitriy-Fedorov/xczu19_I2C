@@ -13,11 +13,7 @@ reg[15:0] clock_count = 16'b0;
 wire clk_ddr4_200MHz;
 wire clk_I2C_400KHz;
 
-
-//reg[7:0] reg_addr = 8'b00000010;
-//reg read_write = 1'b0;    // 1-read, 0-write
 wire[31:0] state;
-//wire[6:0] slv_addr = 7'b1110100;
 wire[6:0] slv_addr;
 wire[7:0] current_payload_out;
 wire[7:0] current_payload_in;
@@ -28,6 +24,7 @@ wire ack;
 wire en;
 wire error;
 wire rw_10;
+wire trigger;
 
 wire rx_clk, rx_data;
 wire tx_clk, tx_data;
@@ -56,8 +53,8 @@ vio_0 vio_switch (
   .clk(clk_ddr4_200MHz),    // input wire clk
   .probe_out0(rst_wrapper),  // output wire [0 : 0] probe_out0
   .probe_out1(clk_mux),  // output wire [3 : 0] probe_out1
-  .probe_out2(reg_addr),  // output wire [7 : 0] probe_out2
-  .probe_out3(slv_addr),  // output wire [6 : 0] probe_out3
+  .probe_out2(),  // output wire [7 : 0] probe_out2
+  .probe_out3(),  // output wire [6 : 0] probe_out3
   .probe_out4(I2C_RST_N_PL)
 );
 
@@ -68,7 +65,7 @@ ila_0 ila_debug (
 	.probe0(clock_count), // input wire [15:0]  probe0  
 	.probe1(clk_I2C_400KHz), // input wire [0:0]  probe1 
 	.probe2({rx_data, rx_clk}), // input wire [1:0]  probe2 
-	.probe3({rst_cell, ack, done_flag, en, tx_enable, clk_enable}), // input wire [5:0]  probe3 
+	.probe3({rst_cell, ack, done_flag, en, tx_enable, trigger}), // input wire [5:0]  probe3 
 	.probe4(current_payload_out), // input wire [7:0]  probe4 
 	.probe5(send_buffer), // input wire [7:0]  probe5
 	.probe6(state)     // input wire [31:0]  probe0  
@@ -82,28 +79,7 @@ assign rx_clk = I2C_SCL_PL;
 
 
 
-/* ------- I2C main cell ------- */
-//I2C_S5341_seq_v2 I2C_cell(
-//    .clk(clk_I2C_400KHz),          // input   - 400KHz
-//    .rst(rst),                      // input
-//    .slv_addr(slv_addr),        // input [6:0]
-//    .payload_in(reg_addr),      // input [7:0]
-//    .payload_out(payload_out),     // output [7:0]
-//    .done_flag(done_flag),       // output
-       
-//    .rx_data(rx_data),
-//    .rx_clk(rx_clk),
-//    .tx_data(tx_data),
-//    .tx_clk(tx_clk),
-//    .tx_enable(tx_enable),
-//    .clk_enable(clk_enable),
-    
-//    .en(en),                        
-//    .ack(ack), 
-//    .send_buffer(send_buffer),
-//    .state(state)
-//    );
-    
+/* ------- I2C 1-byte wrapper ------- */
 I2C_wrapper UUT(
     // essential
     .clk(clk_I2C_400KHz),
@@ -130,7 +106,8 @@ I2C_wrapper UUT(
     .ack(ack),
     .en(en),
     .send_buffer(send_buffer),
-    .state(state)
+    .state(state),
+    .trigger(trigger)
     );
 
 /* ------- Simple 16-bit counter ------- */
