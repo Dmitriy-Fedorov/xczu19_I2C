@@ -10,6 +10,7 @@ module main(
     );
     
 reg[15:0] clock_count = 16'b0;
+wire[15:0] t_counter;
 wire clk_ddr4_200MHz;
 wire clk_I2C_400KHz;
 
@@ -29,8 +30,6 @@ wire trigger;
 wire rx_clk, rx_data;
 wire tx_clk, tx_data;
 wire clk_enable, tx_enable;
-
-
 
 wire rst_cell;
 
@@ -53,22 +52,23 @@ vio_0 vio_switch (
   .clk(clk_ddr4_200MHz),    // input wire clk
   .probe_out0(rst_wrapper),  // output wire [0 : 0] probe_out0
   .probe_out1(clk_mux),  // output wire [3 : 0] probe_out1
-  .probe_out2(),  // output wire [7 : 0] probe_out2
+  .probe_out2(reg_addr),  // output wire [7 : 0] probe_out2
   .probe_out3(),  // output wire [6 : 0] probe_out3
   .probe_out4(I2C_RST_N_PL)
 );
 
 
-ila_0 ila_debug (
+ila_0 ila_debug(
 	.clk(clk_ddr4_200MHz), // input wire clk
 
 	.probe0(clock_count), // input wire [15:0]  probe0  
 	.probe1(clk_I2C_400KHz), // input wire [0:0]  probe1 
 	.probe2({rx_data, rx_clk}), // input wire [1:0]  probe2 
-	.probe3({rst_cell, ack, done_flag, en, tx_enable, trigger}), // input wire [5:0]  probe3 
+	.probe3({rst_cell, ack, done_flag, en, tx_enable, trigger, error}), // input wire [5:0]  probe3 
 	.probe4(current_payload_out), // input wire [7:0]  probe4 
 	.probe5(send_buffer), // input wire [7:0]  probe5
-	.probe6(state)     // input wire [31:0]  probe0  
+	.probe6(state),     // input wire [31:0]  probe6  
+	.probe7(t_counter) // input wire [15:0]  probe7 
 );
 
 /* ------- I2C tristate buffers ------- */
@@ -102,12 +102,14 @@ I2C_wrapper UUT(
     .rw_10(rw_10),
     .rst_cell(rst_cell),
     .rst_wrapper(rst_wrapper),
+    .reg_addr_driver(reg_addr),
     // debug
     .ack(ack),
     .en(en),
     .send_buffer(send_buffer),
     .state(state),
-    .trigger(trigger)
+    .trigger(trigger),
+    .t_counter(t_counter)
     );
 
 /* ------- Simple 16-bit counter ------- */
