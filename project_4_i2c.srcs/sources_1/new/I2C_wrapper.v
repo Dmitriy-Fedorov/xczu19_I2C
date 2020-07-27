@@ -22,12 +22,14 @@ module I2C_wrapper(
     output reg rw_10,
     output reg rst_cell,
     input wire rst_wrapper,
+    input wire[7:0] reg_addr_driver,
     // debug
     output wire ack,
     output wire en,
     output wire[7:0] send_buffer,
     output wire[31:0] state,
-    output reg trigger
+    output reg trigger,
+    output reg[15:0] t_counter = 16'h00
     );
     
 
@@ -57,7 +59,7 @@ I2C_S5341_seq_v2 I2C_cell(
     );
     
 reg[7:0] byte_index;  
-reg[15:0] t_counter = 16'h00;
+//reg[15:0] t_counter = 16'h00;
 reg wrapper_enable;
 localparam t_cycle = 100;  // how many clock ticks does it takes to send 1-byte
 localparam U53_slave_addr = 7'h71;  // 7'b1110001;
@@ -119,7 +121,24 @@ task stop_finish;
         t_cycle*index + 1:
         begin
             wrapper_enable <= 0;    // stops t_counter in order to prevent overflow
+            rst_cell <= 1;
         end
+        endcase
+    end 
+endtask
+
+task do_trigger;
+    input [15:0] t;
+    begin
+        case (t_counter)
+        t:
+        begin
+            trigger <= 1; 
+        end
+        t + 1:
+        begin
+            trigger <= 0; 
+        end 
         endcase
     end 
 endtask
@@ -146,7 +165,13 @@ begin
         send_byte(16'd1, U53_slave_addr, 8'h02); // U53 activate line number 1
         read_byte(16'd2, U53_slave_addr);
         
-        stop_finish(16'd3);
+        do_trigger(t_cycle*2);
+        
+        send_byte(16'd3, U46_slave_addr, reg_addr_driver); // U46 select register to read by sending its addr
+        read_byte(16'd4, U46_slave_addr);
+        
+        stop_finish(16'd5);
+        
     end
 end
 
