@@ -17,8 +17,9 @@ module I2C_wrapper(
     
     // control
     output reg[6:0] slv_addr,
-    output reg[7:0] current_payload_in,
-    output wire[7:0] current_payload_out,
+    output reg[7:0] reg_addr,
+    output reg[7:0] current_data_in,
+    output wire[7:0] current_data_out,
     output reg rw_10,
     output reg rst_cell,
     input wire rst_wrapper,
@@ -29,20 +30,34 @@ module I2C_wrapper(
     output wire[7:0] send_buffer,
     output wire[31:0] state,
     output reg trigger,
-    output reg[15:0] t_counter = 16'h00
+    output reg[31:0] t_counter = 32'h00
     );
     
 
+reg assert_error = 0;
+reg w2_mode;
+wire ack_error;
+assign error = assert_error | ack_error;
+//reg[7:0] byte_index;  
+//reg[15:0] t_counter = 16'h00;
+reg wrapper_enable;
+
+localparam t_cycle = 8'd150;  // how many clock ticks does it takes to send 1-byte
+localparam U53_slave_addr = 7'h71;  // 7'b1110001;
+localparam U46_slave_addr = 7'h74;  // 7'b1110100;
+
 /* ------- I2C main cell ------- */
-I2C_S5341_seq_v2 I2C_cell(
+I2C_S5341_seq_v2 #(.t_cycle(t_cycle)) I2C_cell  (
     .clk(clk),                              // input   - 400KHz
     .slv_addr(slv_addr),                    // input [6:0]
-    .payload_in(current_payload_in),        // input [7:0]
-    .payload_out(current_payload_out),      // output [7:0]
+    .reg_addr(reg_addr),
+    .data_in(current_data_in),        // input [7:0]
+    .data_out(current_data_out),      // output [7:0]
     
     .rst(rst_cell),                         // input
-    .error(error),
+    .error(ack_error),
     .rw_10(rw_10),
+    .w2_mode(w2_mode),
     .done_flag(done_flag),       // output
        
     .rx_data(rx_data),
@@ -58,25 +73,50 @@ I2C_S5341_seq_v2 I2C_cell(
     .state(state)
     );
     
-reg[7:0] byte_index;  
-//reg[15:0] t_counter = 16'h00;
-reg wrapper_enable;
-localparam t_cycle = 100;  // how many clock ticks does it takes to send 1-byte
-localparam U53_slave_addr = 7'h71;  // 7'b1110001;
-localparam U46_slave_addr = 7'h74;  // 7'b1110100;
 
 
-task send_byte;
+
+
+task send_byte2;
     input [15:0] index;
     input [6:0] addr;
-    input [7:0] payload;
+    input [7:0] data;
     begin
         case (t_counter)
             t_cycle * index:
             begin
                 slv_addr <= addr;                   // i2c slave addr
-                current_payload_in <= payload;      // payload to transmit
+                reg_addr <= 8'h00;                  // dummy value
+                current_data_in <= data;            // payload to transmit
                 rw_10 <= 0;                         // write enable
+                w2_mode <= 1;                       // 2-staged mode select
+            end
+            t_cycle * index + 1:
+            begin
+                rst_cell <= 0;                      // makes i2c cell active
+            end
+            t_cycle * (index + 1) - 10:
+            begin
+                rst_cell <= 1;                      // makes i2c cell inactive and resets
+            end
+        endcase
+    end
+endtask
+
+task send_byte3;
+    input [15:0] index;
+    input [6:0] s_addr;
+    input [7:0] r_addr;
+    input [7:0] data;
+    begin
+        case (t_counter)
+            t_cycle * index:
+            begin
+                slv_addr <= s_addr;                 // i2c slave addr
+                reg_addr <= r_addr;                 // register adress u U46
+                current_data_in <= data;            // payload to transmit
+                rw_10 <= 0;                         // write enable
+                w2_mode <= 0;                       // 3-staged mode select
             end
             t_cycle * index + 1:
             begin
@@ -98,8 +138,10 @@ task read_byte;
             t_cycle * index:
             begin
                 slv_addr <= addr;                   // i2c slave addr
-                current_payload_in <= 0;            // dummy payload
+                reg_addr <= 8'h80;
+                current_data_in <= 0;               // dummy payload
                 rw_10 <= 1;                         // read enable
+                // w2_mode <= x;                    // dont care
             end
             t_cycle * index + 1:
             begin
@@ -122,7 +164,15 @@ task stop_finish;
         begin
             wrapper_enable <= 0;    // stops t_counter in order to prevent overflow
             rst_cell <= 1;
+            $stop;
         end
+//        default:
+//        begin
+//            if(error)
+//            begin
+//                wrapper_enable <= 0;    // stops t_counter in case of error
+//            end
+//        end
         endcase
     end 
 endtask
@@ -143,16 +193,50 @@ task do_trigger;
     end 
 endtask
 
+task assert_current_data_out;
+    input [15:0] index;
+    input [7:0] assert_equal;
+    begin
+        case (t_counter)
+        t_cycle * (index + 1) - 10:
+        begin
+            if (current_data_out != assert_equal)
+            begin
+                assert_error <= 1;
+            end
+        end
+        t_cycle * (index + 1) - 9:
+        begin
+            assert_error <= 0;
+        end
+        endcase
+    end 
+endtask
+
+//wire[15:0] pointer_index;
+reg [7:0] RAM[799:0];
+wire [7:0] RAM_addr, RAM_data;
+
+wire[15:0] pointer;  // RAM index pointer
+reg[7:0] offset = 0;
+assign pointer = t_counter / t_cycle - offset;
+assign RAM_addr = pointer < 400 ? RAM[pointer*2] : RAM[798];
+assign RAM_data = pointer < 400 ? RAM[pointer*2+1] : RAM[799];
+
+initial // Read the memory contents in the file
+begin
+  $readmemh("C:\\Users\\User1\\Desktop\\Si5341-RevD-5341EVB2-Registers_28.07.2020.hex",RAM, 0);
+end
 
 always @(posedge clk)
 begin
     if (rst_wrapper)
     begin
-        current_payload_in <= 8'h00;
+        current_data_in <= 8'h00;
         rst_cell <= 1;
         wrapper_enable <= 1;
         trigger <= 0;
-        byte_index <= 8'h0;
+//        byte_index <= 8'h0;
     end
     else
     begin
@@ -161,16 +245,22 @@ begin
             t_counter <= t_counter + 1;
         end
         
-        read_byte(16'd0, U53_slave_addr);
-        send_byte(16'd1, U53_slave_addr, 8'h02); // U53 activate line number 1
-        read_byte(16'd2, U53_slave_addr);
+        send_byte2(16'd0, U53_slave_addr, 8'h02); // U53 activate line number 1
+        read_byte(16'd1, U53_slave_addr);
+        assert_current_data_out(16'd1, 8'h02);
         
         do_trigger(t_cycle*2);
         
-        send_byte(16'd3, U46_slave_addr, reg_addr_driver); // U46 select register to read by sending its addr
-        read_byte(16'd4, U46_slave_addr);
+        send_byte2(16'd2, U46_slave_addr, reg_addr_driver); // U46 select register to read by sending its addr
+        read_byte(16'd3, U46_slave_addr);
         
-        stop_finish(16'd5);
+        offset <= 4;
+        if ((pointer >= 0) & (pointer < 400))
+        begin
+            send_byte3(pointer+offset, U46_slave_addr, RAM_addr, RAM_data);
+        end
+        
+        stop_finish(400+offset);
         
     end
 end
