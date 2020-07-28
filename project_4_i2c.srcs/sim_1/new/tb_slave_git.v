@@ -7,18 +7,27 @@ module i2c_slave_controller(
 	inout scl
 	);
 	
-	localparam ADDRESS = 7'b1110100;
-	
+//	localparam ADDRESS = 7'b1110100;
+	localparam ADDRESS = 7'h71;
+	/*
 	localparam READ_ADDR = 0;
 	localparam SEND_ACK = 1;
 	localparam READ_DATA = 2;
 	localparam WRITE_DATA = 3;
 	localparam SEND_ACK2 = 4;
-	localparam READ_ACK = 5;
+	localparam READ_ACK = 5;*/
+	
+    localparam READ_ADDR =  "READ_ADDR ";
+	localparam SEND_ACK =   "SEND_ACK  ";
+	localparam READ_DATA =  "READ_DATA ";
+	localparam WRITE_DATA = "WRITE_DATA";
+	localparam SEND_ACK2 =  "SEND_ACK2 ";
+	localparam READ_ACK =   "READ_ACK  ";
+	
 	
 	reg [7:0] addr;
 	reg [7:0] counter;
-	reg [7:0] state = 0;
+	reg [79:0] state = READ_ADDR;
 	reg [7:0] data_in = 0;
 	reg [7:0] data_out = 8'b11001100;
 	reg sda_out = 0;
