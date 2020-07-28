@@ -59,10 +59,15 @@ I2C_wrapper UUT(
     );
     
 
-i2c_slave_controller slave(
+i2c_slave_controller slave_U46(
     .scl(I2C_SCL_PL),
     .sda(I2C_SDA_PL)
     );
+    
+//i2c_slave_controller #(.ADDRESS(7'h71), .DATA(8'h02)) slave_U53(
+//    .scl(I2C_SCL_PL),
+//    .sda(I2C_SDA_PL)
+//    );
 
 pullup (I2C_SDA_PL);
 pullup (I2C_SCL_PL);

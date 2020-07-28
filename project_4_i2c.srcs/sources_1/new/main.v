@@ -10,14 +10,14 @@ module main(
     );
     
 reg[15:0] clock_count = 16'b0;
-wire[15:0] t_counter;
+wire[31:0] t_counter;
 wire clk_ddr4_200MHz;
 wire clk_I2C_400KHz;
 
 wire[31:0] state;
 wire[6:0] slv_addr;
-wire[7:0] current_payload_out;
-wire[7:0] current_payload_in;
+wire[7:0] current_data_out;
+wire[7:0] current_data_in;
 wire[7:0] send_buffer;
 
 wire done_flag;
@@ -35,7 +35,9 @@ wire rst_cell;
 
 wire rst_wrapper;
 wire[3:0] clk_mux;
-wire[7:0] reg_addr;
+wire[7:0] reg_addr, reg_addr_driver;
+wire[15:0] pointer;
+wire[7:0] RAM_addr, RAM_data;
 
 /* ------- Clock ------- */
 // diff buffere, works for DDR4 clock
@@ -52,7 +54,7 @@ vio_0 vio_switch (
   .clk(clk_ddr4_200MHz),    // input wire clk
   .probe_out0(rst_wrapper),  // output wire [0 : 0] probe_out0
   .probe_out1(clk_mux),  // output wire [3 : 0] probe_out1
-  .probe_out2(reg_addr),  // output wire [7 : 0] probe_out2
+  .probe_out2(reg_addr_driver),  // output wire [7 : 0] probe_out2
   .probe_out3(),  // output wire [6 : 0] probe_out3
   .probe_out4(I2C_RST_N_PL)
 );
@@ -65,10 +67,13 @@ ila_0 ila_debug(
 	.probe1(clk_I2C_400KHz), // input wire [0:0]  probe1 
 	.probe2({rx_data, rx_clk}), // input wire [1:0]  probe2 
 	.probe3({rst_cell, ack, done_flag, en, tx_enable, trigger, error}), // input wire [5:0]  probe3 
-	.probe4(current_payload_out), // input wire [7:0]  probe4 
+	.probe4(current_data_out), // input wire [7:0]  probe4 
 	.probe5(send_buffer), // input wire [7:0]  probe5
 	.probe6(state),     // input wire [31:0]  probe6  
-	.probe7(t_counter) // input wire [15:0]  probe7 
+	.probe7(t_counter), // input wire [31:0]  probe7 
+	.probe8(reg_addr), // input wire [7:0]  probe8
+	.probe9(pointer), // input wire [15:0]  probe9
+	.probe10({RAM_addr, RAM_data}) // input wire [15:0]  probe10  
 );
 
 /* ------- I2C tristate buffers ------- */
@@ -94,22 +99,23 @@ I2C_wrapper UUT(
     .error(error),
     .done_flag(done_flag),
     
-    
     // control
     .slv_addr(slv_addr),
-    .current_payload_in(current_payload_in),
-    .current_payload_out(current_payload_out),
+    .reg_addr(reg_addr),
+    .current_data_in(current_data_in),
+    .current_data_out(current_data_out),
     .rw_10(rw_10),
     .rst_cell(rst_cell),
     .rst_wrapper(rst_wrapper),
-    .reg_addr_driver(reg_addr),
+    .reg_addr_driver(reg_addr_driver),
     // debug
     .ack(ack),
     .en(en),
     .send_buffer(send_buffer),
     .state(state),
     .trigger(trigger),
-    .t_counter(t_counter)
+    .t_counter(t_counter),
+    .pointer(pointer)
     );
 
 /* ------- Simple 16-bit counter ------- */

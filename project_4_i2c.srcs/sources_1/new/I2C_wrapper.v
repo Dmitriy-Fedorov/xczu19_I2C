@@ -30,7 +30,10 @@ module I2C_wrapper(
     output wire[7:0] send_buffer,
     output wire[31:0] state,
     output reg trigger,
-    output reg[31:0] t_counter = 32'h00
+    output reg[31:0] t_counter = 32'h00,
+    output reg[15:0] pointer = 15'd0,  // RAM index pointer
+    output wire[7:0] RAM_addr,
+    output wire[7:0] RAM_data
     );
     
 
@@ -38,7 +41,6 @@ reg assert_error = 0;
 reg w2_mode;
 wire ack_error;
 assign error = assert_error | ack_error;
-//reg[7:0] byte_index;  
 //reg[15:0] t_counter = 16'h00;
 reg wrapper_enable;
 
@@ -90,6 +92,7 @@ task send_byte2;
                 current_data_in <= data;            // payload to transmit
                 rw_10 <= 0;                         // write enable
                 w2_mode <= 1;                       // 2-staged mode select
+                $display("%6d Send_byte2 %2h:%2h", $time ,addr, data);
             end
             t_cycle * index + 1:
             begin
@@ -103,7 +106,7 @@ task send_byte2;
     end
 endtask
 
-task send_byte3;
+task send_byte3_inc_pointer;
     input [15:0] index;
     input [6:0] s_addr;
     input [7:0] r_addr;
@@ -125,6 +128,7 @@ task send_byte3;
             t_cycle * (index + 1) - 10:
             begin
                 rst_cell <= 1;                      // makes i2c cell inactive and resets
+                pointer <= pointer + 1;
             end
         endcase
     end
@@ -213,19 +217,18 @@ task assert_current_data_out;
     end 
 endtask
 
-//wire[15:0] pointer_index;
 reg [7:0] RAM[799:0];
-wire [7:0] RAM_addr, RAM_data;
+//wire [7:0] RAM_addr, RAM_data;
 
-wire[15:0] pointer;  // RAM index pointer
-reg[7:0] offset = 0;
-assign pointer = t_counter / t_cycle - offset;
+//wire[15:0] pointer;  // RAM index pointer
+reg[7:0] offset = 4;
+//assign pointer = t_counter / t_cycle - offset;
 assign RAM_addr = pointer < 400 ? RAM[pointer*2] : RAM[798];
 assign RAM_data = pointer < 400 ? RAM[pointer*2+1] : RAM[799];
 
 initial // Read the memory contents in the file
 begin
-  $readmemh("C:\\Users\\User1\\Desktop\\Si5341-RevD-5341EVB2-Registers_28.07.2020.hex",RAM, 0);
+  $readmemh("C:\\Users\\User1\\Desktop\\Si5341-RevD-5341EVB2-Registers_28.07.2020_2.hex",RAM, 0, 799);
 end
 
 always @(posedge clk)
@@ -236,7 +239,8 @@ begin
         rst_cell <= 1;
         wrapper_enable <= 1;
         trigger <= 0;
-//        byte_index <= 8'h0;
+        t_counter <= 0;
+        pointer <= 0;
     end
     else
     begin
@@ -249,15 +253,16 @@ begin
         read_byte(16'd1, U53_slave_addr);
         assert_current_data_out(16'd1, 8'h02);
         
-        do_trigger(t_cycle*2);
         
         send_byte2(16'd2, U46_slave_addr, reg_addr_driver); // U46 select register to read by sending its addr
         read_byte(16'd3, U46_slave_addr);
-        
-        offset <= 4;
-        if ((pointer >= 0) & (pointer < 400))
+    
+        do_trigger(t_cycle*400);
+
+        if ((t_cycle*offset >= 0) & (pointer < 400))
         begin
-            send_byte3(pointer+offset, U46_slave_addr, RAM_addr, RAM_data);
+            $display("%6d Send_byte3 %d", $time ,pointer);
+            send_byte3_inc_pointer(pointer+offset, U46_slave_addr, RAM_addr, RAM_data);
         end
         
         stop_finish(400+offset);

@@ -8,7 +8,9 @@ module i2c_slave_controller(
 	);
 	
 //	localparam ADDRESS = 7'b1110100;
-	localparam ADDRESS = 7'h71;
+	parameter ADDRESS = 7'h71;
+	parameter ADDRESS2 = 7'h74;
+	parameter DATA = 8'h02;
 	/*
 	localparam READ_ADDR = 0;
 	localparam SEND_ACK = 1;
@@ -29,7 +31,7 @@ module i2c_slave_controller(
 	reg [7:0] counter;
 	reg [79:0] state = READ_ADDR;
 	reg [7:0] data_in = 0;
-	reg [7:0] data_out = 8'b11001100;
+	reg [7:0] data_out = 8'h02;
 	reg sda_out = 0;
 	reg sda_in = 0;
 	reg start = 0;
@@ -62,7 +64,7 @@ module i2c_slave_controller(
 				end
 				
 				SEND_ACK: begin
-					if(addr[7:1] == ADDRESS) begin
+					if((addr[7:1] == ADDRESS) | (addr[7:1] == ADDRESS2)) begin
 						counter <= 7;
 						if(addr[0] == 0) begin 
 							state <= READ_DATA;
