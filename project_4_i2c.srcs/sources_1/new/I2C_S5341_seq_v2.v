@@ -6,11 +6,13 @@ module I2C_S5341_seq_v2(
     // essential
     input wire clk,
     input wire[6:0] slv_addr,
-    input wire[7:0] payload_in,
-    output reg[7:0] payload_out,
+    input wire[7:0] reg_addr,
+    input wire[7:0] data_in,
+    output reg[7:0] data_out,
     
     input wire rst,
     input wire rw_10,
+    input wire w2_mode, // write mode, 0 -> 3 staged, 1-> 2 staged
     output reg error = 0,
     output reg done_flag,
     // I2C
@@ -36,6 +38,7 @@ localparam READ_RX = 0;
 localparam WRITE_TX = 1;
 localparam I2C_READ = 1'b1;
 localparam I2C_WRITE = 1'b0;
+parameter t_cycle = 8'd150;
 
 reg[7:0] main_counter = 8'hff;  
 reg[7:0] clk_counter = 8'h00;  
@@ -160,37 +163,37 @@ task do_read;
         offset:
         begin 
             $display("%6d Recieving payload", $time);
-            payload_out[7] <= rx_data;
+            data_out[7] <= rx_data;
             state <= "READ";
         end
         offset + 4:
         begin 
-            payload_out[6] <= rx_data;
+            data_out[6] <= rx_data;
         end
         offset + 8:
         begin 
-            payload_out[5] <= rx_data;
+            data_out[5] <= rx_data;
         end
         offset + 12:
         begin 
-            payload_out[4] <= rx_data;
+            data_out[4] <= rx_data;
         end
         offset + 16:
         begin 
-            payload_out[3] <= rx_data;
+            data_out[3] <= rx_data;
         end
         offset + 20:
         begin 
-            payload_out[2] <= rx_data;
+            data_out[2] <= rx_data;
         end
         offset + 24:
         begin 
-            payload_out[1] <= rx_data;
+            data_out[1] <= rx_data;
         end
         offset + 28:
         begin 
-            payload_out[0] <= rx_data;
-            $display("%6d Recieved payload, %8b", $time,  {payload_out[7:1], rx_data} );
+            data_out[0] <= rx_data;
+            $display("%6d Recieved payload, %8b", $time,  {data_out[7:1], rx_data} );
         end
     endcase
     end
@@ -278,13 +281,29 @@ begin
         end
         if (~rw_10)
         begin
-            // select register
-            do_start(t_start);
-            do_send(t_start + 2, {slv_addr, I2C_WRITE});
-            read_ack(t_start + 33, WRITE_TX);
-            do_send(t_start + 38, payload_in);
-            read_ack(t_start + 69, WRITE_TX);
-            do_stop(t_start + 75);
+            if (w2_mode)
+            begin
+                // 2-staged write stage
+                do_start(t_start);
+                do_send(t_start + 2, {slv_addr, I2C_WRITE});
+                read_ack(t_start + 33, WRITE_TX);
+                do_send(t_start + 38, data_in);
+                read_ack(t_start + 69, WRITE_TX);
+                do_stop(t_start + 75);
+            end
+            else
+            begin
+                // 3-staged write stage
+                do_start(t_start);
+                do_send(t_start + 2, {slv_addr, I2C_WRITE});
+                read_ack(t_start + 33, WRITE_TX);
+                do_send(t_start + 38, reg_addr);
+                read_ack(t_start + 69, WRITE_TX);
+                do_send(t_start + 74, data_in);
+                read_ack(t_start + 105, WRITE_TX);
+                do_stop(t_start + 111);
+            end
+            
         end
         else
         begin
@@ -304,7 +323,7 @@ begin
             main_counter % 4 == 0 -> negedge
             main_counter % 4 == 1 -> zero
             */    
-        t_start + 90:
+        t_start + t_cycle - 30:
         begin
             en <= 0;
         end
