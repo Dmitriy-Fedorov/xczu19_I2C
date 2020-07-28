@@ -20,8 +20,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module RAM(
-    input wire clk,
+module ROM(
+//    input wire clk,
     input wire[8:0] i,
     output wire[7:0] addr_i,
     output wire[7:0] data_i
@@ -29,16 +29,17 @@ module RAM(
     
 reg[7:0] addr[0:399];
 reg[7:0] data[0:399];
-reg init = 1;
+//reg init = 1;
 
 assign addr_i = i < 400 ? addr[i] : addr[399];
 assign data_i = i < 400 ? data[i] : data[399];
 
-always @(init)
+//always @(init)
+initial
 begin
-  if (init)
+//  if (init)
 
-  begin
+//  begin
 
     //0: 0x0B24,0xC0
     addr[0] <= 8'h01;    //page change 
@@ -1227,8 +1228,8 @@ begin
     addr[399] <= 8'h25; 
     data[399] <= 8'h02; 
 
-    init <= 0;
-  end
+//    init <= 0;
+//  end
 end
 
 endmodule
