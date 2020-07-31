@@ -115,7 +115,9 @@ I2C_wrapper UUT(
     .state(state),
     .trigger(trigger),
     .t_counter(t_counter),
-    .pointer(pointer)
+    .pointer(pointer),
+    .RAM_addr(RAM_addr),
+    .RAM_data(RAM_data)
     );
 
 /* ------- Simple 16-bit counter ------- */
