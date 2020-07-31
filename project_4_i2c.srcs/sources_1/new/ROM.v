@@ -1,24 +1,4 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 07/28/2020 10:19:57 PM
-// Design Name: 
-// Module Name: RAM
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module ROM(
 //    input wire clk,
@@ -29,18 +9,12 @@ module ROM(
     
 reg[7:0] addr[0:399];
 reg[7:0] data[0:399];
-//reg init = 1;
 
 assign addr_i = i < 400 ? addr[i] : addr[399];
 assign data_i = i < 400 ? data[i] : data[399];
 
-//always @(init)
 initial
 begin
-//  if (init)
-
-//  begin
-
     //0: 0x0B24,0xC0
     addr[0] <= 8'h01;    //page change 
     data[0] <= 8'h0B;    //page change 
@@ -1228,8 +1202,6 @@ begin
     addr[399] <= 8'h25; 
     data[399] <= 8'h02; 
 
-//    init <= 0;
-//  end
 end
 
 endmodule
