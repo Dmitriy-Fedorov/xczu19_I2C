@@ -41,10 +41,9 @@ reg assert_error = 0;
 reg w2_mode;
 wire ack_error;
 assign error = assert_error | ack_error;
-//reg[15:0] t_counter = 16'h00;
 reg wrapper_enable;
 
-localparam t_cycle = 8'd150;  // how many clock ticks does it takes to send 1-byte
+localparam t_cycle = 8'd150;        // how many clock ticks does it takes to send 1-byte
 localparam U53_slave_addr = 7'h71;  // 7'b1110001;
 localparam U46_slave_addr = 7'h74;  // 7'b1110100;
 
@@ -73,12 +72,18 @@ I2C_S5341_seq_v2 #(.t_cycle(t_cycle)) I2C_cell  (
     .ack(ack), 
     .send_buffer(send_buffer),
     .state(state)
-    );
-    
+);
+
+/* ------- ROM memory cell ------- */
+ROM memory(
+//    .clk(clk),
+    .i(pointer),
+    .addr_i(RAM_addr),
+    .data_i(RAM_data)
+);
 
 
-
-
+/* ------- Task defenitions ------- */
 task send_byte2;
     input [15:0] index;
     input [6:0] addr;
@@ -159,28 +164,6 @@ task read_byte;
     end
 endtask
 
-
-task stop_finish;
-    input [15:0] index;
-    begin
-        case (t_counter)
-        t_cycle*index + 1:
-        begin
-            wrapper_enable <= 0;    // stops t_counter in order to prevent overflow
-            rst_cell <= 1;
-            $stop;
-        end
-//        default:
-//        begin
-//            if(error)
-//            begin
-//                wrapper_enable <= 0;    // stops t_counter in case of error
-//            end
-//        end
-        endcase
-    end 
-endtask
-
 task do_trigger;
     input [15:0] t;
     begin
@@ -217,19 +200,29 @@ task assert_current_data_out;
     end 
 endtask
 
-reg [7:0] RAM[799:0];
-//wire [7:0] RAM_addr, RAM_data;
+task stop_finish;
+    input [15:0] index;
+    begin
+        case (t_counter)
+        t_cycle*index + 1:
+        begin
+            wrapper_enable <= 0;    // stops t_counter in order to prevent overflow
+            rst_cell <= 1;
+            $stop;
+        end
+        default:
+        begin
+            if(error)
+            begin
+                wrapper_enable <= 0;    // stops t_counter in case of error
+            end
+        end
+        endcase
+    end 
+endtask
 
-//wire[15:0] pointer;  // RAM index pointer
-reg[7:0] offset = 4;
-//assign pointer = t_counter / t_cycle - offset;
-assign RAM_addr = pointer < 400 ? RAM[pointer*2] : RAM[798];
-assign RAM_data = pointer < 400 ? RAM[pointer*2+1] : RAM[799];
-
-initial // Read the memory contents in the file
-begin
-  $readmemh("C:\\Users\\User1\\Desktop\\Si5341-RevD-5341EVB2-Registers_28.07.2020_2.hex",RAM, 0, 799);
-end
+/* ------- Main logic control ------- */
+localparam offset = 4;
 
 always @(posedge clk)
 begin
@@ -261,7 +254,7 @@ begin
 
         if ((t_cycle*offset >= 0) & (pointer < 400))
         begin
-            $display("%6d Send_byte3 %d", $time ,pointer);
+            $display("%6d Send_byte3 %d", $time, pointer);
             send_byte3_inc_pointer(pointer+offset, U46_slave_addr, RAM_addr, RAM_data);
         end
         
