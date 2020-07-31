@@ -10,14 +10,14 @@ if len(files) == 1:
     fname = files[0]
 elif len(files) > 1:
     for i, file in enumerate(files):
-        print(i, fname)
-    num = input("Select file...")
+        print(i, file)
+    num = input("Select file...\n:")
     fname = files[int(num)]
 
 
 if len(files) >= 1:
     program = ""
-    with open(f"{path}\\Si5341-RevD-5341EVB2-Registers_28.07.2020.txt", "r") as f:
+    with open(f"{path}\\{fname}", "r") as f:
         old_page = ""
         i = 0
         for line in f.readlines():
