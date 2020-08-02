@@ -11,3 +11,4 @@
 !project_*.srcs/*/*/*.v
 !project_*.srcs/*/*/*.py
 !project_*.srcs/*/*/*.xdc
+!project_*.srcs/*/*/*.slabtimeproj
